@@ -14,14 +14,43 @@ function getGreeting(name: string): string {
 const TABS = ["Journal", "Artifacts"] as const;
 type Tab = (typeof TABS)[number];
 
+declare global {
+  interface Window {
+    SpeechRecognition?: new () => SpeechRecognitionInstance;
+    webkitSpeechRecognition?: new () => SpeechRecognitionInstance;
+  }
+}
+interface SpeechRecognitionInstance extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start(): void;
+  stop(): void;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null;
+  onerror: ((event: Event) => void) | null;
+  onend: ((event: Event) => void) | null;
+}
+interface SpeechRecognitionEvent extends Event {
+  resultIndex: number;
+  results: SpeechRecognitionResultList;
+}
+
+const SpeechRecognitionCtor =
+  typeof window !== "undefined"
+    ? window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null
+    : null;
+
 export default function PreviewPage({ name = "" }: PreviewPageProps) {
   const [activeTab, setActiveTab] = useState<Tab>("Journal");
   const [today, setToday] = useState("");
   const [entries, setEntries] = useState<string[]>([]);
   const [newEntry, setNewEntry] = useState("");
   const [isRecording, setIsRecording] = useState(false);
+  const [transcript, setTranscript] = useState("");
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
+  const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const d = new Date();
@@ -33,6 +62,12 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
       })
     );
   }, []);
+
+  useEffect(() => {
+    if (transcriptScrollRef.current) {
+      transcriptScrollRef.current.scrollTop = transcriptScrollRef.current.scrollHeight;
+    }
+  }, [transcript]);
 
   const displayName = name || "there";
   const greeting = getGreeting(displayName);
@@ -48,6 +83,7 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
     return () => {
       mediaRecorderRef.current?.stop();
       streamRef.current?.getTracks().forEach((t) => t.stop());
+      recognitionRef.current?.stop();
     };
   }, []);
 
@@ -57,6 +93,8 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
       streamRef.current?.getTracks().forEach((t) => t.stop());
       mediaRecorderRef.current = null;
       streamRef.current = null;
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
       setIsRecording(false);
     } else {
       try {
@@ -66,11 +104,53 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
         mediaRecorderRef.current = recorder;
         recorder.start();
         setIsRecording(true);
+        setTranscript("");
+
+        if (SpeechRecognitionCtor) {
+          const recognition = new SpeechRecognitionCtor();
+          recognition.continuous = true;
+          recognition.interimResults = true;
+          recognition.lang = "en-US";
+
+          let finalText = "";
+
+          recognition.onresult = (event: SpeechRecognitionEvent) => {
+            let interimText = "";
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+              const result = event.results[i];
+              if (result.isFinal) {
+                finalText += result[0].transcript;
+              } else {
+                interimText += result[0].transcript;
+              }
+            }
+            setTranscript(finalText + interimText);
+          };
+
+          recognition.onerror = () => {
+            recognitionRef.current = null;
+          };
+
+          recognition.onend = () => {
+            if (recognitionRef.current !== null) {
+              try {
+                recognitionRef.current.start();
+              } catch {
+                recognitionRef.current = null;
+              }
+            }
+          };
+
+          recognition.start();
+          recognitionRef.current = recognition;
+        }
       } catch {
         // permission denied or not available — do nothing
       }
     }
   }
+
+  const showTranscriptPanel = SpeechRecognitionCtor !== null && (isRecording || transcript.length > 0);
 
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-[#F8F7F3] selection:bg-[#899E7F]/30">
@@ -149,6 +229,37 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
                 )}
               </button>
             </div>
+
+            {/* Live Transcript Panel */}
+            {showTranscriptPanel && (
+              <div className="mx-4 mb-4 rounded-xl bg-black/20 border border-white/10 overflow-hidden flex flex-col">
+                <div className="flex items-center gap-1.5 px-3 pt-2.5 pb-1.5">
+                  {isRecording && (
+                    <span className="relative flex-shrink-0 w-1.5 h-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-red-400"></span>
+                    </span>
+                  )}
+                  <span className="text-[10px] tracking-widest uppercase font-sans font-medium text-[#F8F7F3]/40">
+                    {isRecording ? "Listening" : "Transcript"}
+                  </span>
+                </div>
+                <div
+                  ref={transcriptScrollRef}
+                  className="px-3 pb-3 max-h-[120px] overflow-y-auto"
+                >
+                  {transcript ? (
+                    <p className="text-xs font-sans font-light text-[#F8F7F3]/70 leading-relaxed whitespace-pre-wrap">
+                      {transcript}
+                    </p>
+                  ) : (
+                    <p className="text-xs font-sans font-light text-[#F8F7F3]/30 italic leading-relaxed">
+                      Start speaking…
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Date */}
             <div className="px-6 pb-2">
