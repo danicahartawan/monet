@@ -1,16 +1,24 @@
 import { useState } from "react";
-import { Switch, Route, Router as WouterRouter } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation, useSearch } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import moulin from "@assets/moulin_1775445825141.jpg";
 import winter from "@assets/card-Monet-Winter-1000x570.jpg_1775445827952.webp";
+import PreviewPage from "./pages/PreviewPage";
 
 const queryClient = new QueryClient();
 
 function Home() {
   const [email, setEmail] = useState("");
   const [status, setStatus] = useState<"idle" | "submitting" | "success">("idle");
+  const [, navigate] = useLocation();
+
+  const getFirstName = (e: string): string => {
+    const local = e.split("@")[0];
+    const name = local.split(/[._\-+]/)[0];
+    return name.charAt(0).toUpperCase() + name.slice(1);
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,6 +26,10 @@ function Home() {
     setStatus("submitting");
     setTimeout(() => {
       setStatus("success");
+      const firstName = getFirstName(email);
+      setTimeout(() => {
+        navigate(`/preview?name=${encodeURIComponent(firstName)}`);
+      }, 600);
     }, 1000);
   };
 
@@ -61,7 +73,7 @@ function Home() {
           {status === "success" ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-[40px] flex items-center">
               <p className="text-lg font-serif italic text-[#F8F7F3] opacity-90">
-                Thank you. We'll be in touch soon.
+                Taking you in…
               </p>
             </div>
           ) : (
@@ -103,10 +115,18 @@ function Home() {
   );
 }
 
+function PreviewRoute() {
+  const search = useSearch();
+  const params = new URLSearchParams(search);
+  const name = params.get("name") ?? "";
+  return <PreviewPage name={name} />;
+}
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/preview" component={PreviewRoute} />
       <Route component={Home} />
     </Switch>
   );
