@@ -4,6 +4,17 @@ interface PreviewPageProps {
   name?: string;
 }
 
+interface ExtractedNode {
+  title: string;
+  body: string;
+}
+
+interface ExtractedEdge {
+  source: string;
+  target: string;
+  label?: string;
+}
+
 function getGreeting(name: string): string {
   const hour = new Date().getHours();
   if (hour < 12) return `Good morning, ${name}`;
@@ -40,6 +51,122 @@ const SpeechRecognitionCtor =
     ? window.SpeechRecognition ?? window.webkitSpeechRecognition ?? null
     : null;
 
+function buildMarkdown(nodes: ExtractedNode[], edges: ExtractedEdge[]): string {
+  const parts: string[] = nodes.map((n) => `# ${n.title}\n\n${n.body}`);
+
+  if (edges.length > 0) {
+    const edgeLines = edges.map((e) =>
+      e.label ? `- **${e.source}** → *${e.label}* → **${e.target}**` : `- **${e.source}** → **${e.target}**`
+    );
+    parts.push(`## Connections\n\n${edgeLines.join("\n")}`);
+  }
+  return parts.join("\n\n---\n\n");
+}
+
+function GraphView({ nodes, edges }: { nodes: ExtractedNode[]; edges: ExtractedEdge[] }) {
+  if (nodes.length === 0) return null;
+
+  const W = 520;
+  const H = 360;
+  const cx = W / 2;
+  const cy = H / 2;
+  const R = Math.min(cx, cy) - 64;
+
+  const angleStep = (2 * Math.PI) / nodes.length;
+  const positions: Record<string, { x: number; y: number }> = {};
+  nodes.forEach((n, i) => {
+    const angle = angleStep * i - Math.PI / 2;
+    positions[n.title] = {
+      x: nodes.length === 1 ? cx : cx + R * Math.cos(angle),
+      y: nodes.length === 1 ? cy : cy + R * Math.sin(angle),
+    };
+  });
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" style={{ maxHeight: 360 }}>
+      <defs>
+        <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+          <path d="M0,0 L0,6 L6,3 z" fill="rgba(248,247,243,0.4)" />
+        </marker>
+      </defs>
+
+      {edges.map((e, i) => {
+        const s = positions[e.source];
+        const t = positions[e.target];
+        if (!s || !t) return null;
+        const mx = (s.x + t.x) / 2;
+        const my = (s.y + t.y) / 2;
+        const dx = t.x - s.x;
+        const dy = t.y - s.y;
+        const len = Math.sqrt(dx * dx + dy * dy) || 1;
+        const nodeR = 28;
+        const sx = s.x + (dx / len) * nodeR;
+        const sy = s.y + (dy / len) * nodeR;
+        const tx = t.x - (dx / len) * (nodeR + 6);
+        const ty = t.y - (dy / len) * (nodeR + 6);
+
+        return (
+          <g key={i}>
+            <line
+              x1={sx} y1={sy} x2={tx} y2={ty}
+              stroke="rgba(248,247,243,0.25)"
+              strokeWidth="1.5"
+              markerEnd="url(#arrow)"
+            />
+            {e.label && (
+              <text
+                x={mx} y={my - 6}
+                textAnchor="middle"
+                className="font-sans"
+                fontSize="9"
+                fill="rgba(248,247,243,0.45)"
+              >
+                {e.label}
+              </text>
+            )}
+          </g>
+        );
+      })}
+
+      {nodes.map((n) => {
+        const p = positions[n.title];
+        const words = n.title.split(" ");
+        const lines: string[] = [];
+        let current = "";
+        for (const w of words) {
+          if ((current + " " + w).trim().length > 10 && current) {
+            lines.push(current);
+            current = w;
+          } else {
+            current = current ? current + " " + w : w;
+          }
+        }
+        if (current) lines.push(current);
+
+        return (
+          <g key={n.title}>
+            <circle cx={p.x} cy={p.y} r={28} fill="rgba(248,247,243,0.12)" stroke="rgba(248,247,243,0.3)" strokeWidth="1" />
+            {lines.map((line, li) => (
+              <text
+                key={li}
+                x={p.x}
+                y={p.y + (li - (lines.length - 1) / 2) * 11}
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fontSize="9"
+                fill="rgba(248,247,243,0.85)"
+                className="font-sans"
+              >
+                {line}
+              </text>
+            ))}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
 export default function PreviewPage({ name = "" }: PreviewPageProps) {
   const [activeTab, setActiveTab] = useState<Tab>("Journal");
   const [today, setToday] = useState("");
@@ -47,10 +174,22 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
   const [newEntry, setNewEntry] = useState("");
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
+  const [isExtracting, setIsExtracting] = useState(false);
+  const [extractedNodes, setExtractedNodes] = useState<ExtractedNode[]>([]);
+  const [extractedEdges, setExtractedEdges] = useState<ExtractedEdge[]>([]);
+  const [extractError, setExtractError] = useState<string | null>(null);
+  const [rightView, setRightView] = useState<"markdown" | "graph">("markdown");
+  const [copied, setCopied] = useState(false);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const transcriptScrollRef = useRef<HTMLDivElement | null>(null);
+  const transcriptRef = useRef("");
+
+  useEffect(() => {
+    transcriptRef.current = transcript;
+  }, [transcript]);
 
   useEffect(() => {
     const d = new Date();
@@ -87,6 +226,30 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
     };
   }, []);
 
+  async function runExtract(text: string) {
+    setIsExtracting(true);
+    setExtractError(null);
+    try {
+      const res = await fetch("/api/extract", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript: text }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: "Extraction failed" }));
+        setExtractError((err as { error?: string }).error ?? "Extraction failed");
+        return;
+      }
+      const data = await res.json() as { nodes: ExtractedNode[]; edges: ExtractedEdge[] };
+      setExtractedNodes(data.nodes ?? []);
+      setExtractedEdges(data.edges ?? []);
+    } catch {
+      setExtractError("Could not reach the server. Make sure the API is running.");
+    } finally {
+      setIsExtracting(false);
+    }
+  }
+
   async function toggleRecording() {
     if (isRecording) {
       mediaRecorderRef.current?.stop();
@@ -96,6 +259,11 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
       recognitionRef.current?.stop();
       recognitionRef.current = null;
       setIsRecording(false);
+
+      const captured = transcriptRef.current.trim();
+      if (captured) {
+        await runExtract(captured);
+      }
     } else {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -105,6 +273,10 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
         recorder.start();
         setIsRecording(true);
         setTranscript("");
+        transcriptRef.current = "";
+        setExtractedNodes([]);
+        setExtractedEdges([]);
+        setExtractError(null);
 
         if (SpeechRecognitionCtor) {
           const recognition = new SpeechRecognitionCtor();
@@ -145,12 +317,21 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
           recognitionRef.current = recognition;
         }
       } catch {
-        // permission denied or not available — do nothing
+        // permission denied or not available
       }
     }
   }
 
+  async function handleCopyMarkdown() {
+    const md = buildMarkdown(extractedNodes, extractedEdges);
+    await navigator.clipboard.writeText(md).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
   const showTranscriptPanel = SpeechRecognitionCtor !== null && (isRecording || transcript.length > 0);
+  const hasResults = extractedNodes.length > 0;
+  const markdown = hasResults ? buildMarkdown(extractedNodes, extractedEdges) : "";
 
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-[#F8F7F3] selection:bg-[#899E7F]/30">
@@ -166,16 +347,12 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
       {/* App Window */}
       <div
         className="relative z-10 w-full h-full bg-[#6f8364]/25 backdrop-blur-2xl border border-white/20 animate-in fade-in zoom-in-95 duration-700 overflow-hidden"
-        style={{
-          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.2)",
-        }}
+        style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.2)" }}
       >
         <div className="flex h-full">
-          {/* Left Panel */}
-          <div className="flex flex-col w-full md:w-[300px] md:min-w-[260px] md:max-w-[320px] h-full md:border-r border-white/15 flex-shrink-0">
-            {/* Branding */}
-            <div className="px-6 pt-6 pb-4">
-            </div>
+          {/* ── Left Panel ── */}
+          <div className="flex flex-col w-full md:w-[280px] md:min-w-[240px] md:max-w-[300px] h-full md:border-r border-white/15 flex-shrink-0">
+            <div className="px-6 pt-6 pb-4" />
 
             {/* Tabs */}
             <div className="px-4 pb-3">
@@ -241,18 +418,11 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
                     {isRecording ? "Listening" : "Transcript"}
                   </span>
                 </div>
-                <div
-                  ref={transcriptScrollRef}
-                  className="px-3 pb-3 max-h-[120px] overflow-y-auto"
-                >
+                <div ref={transcriptScrollRef} className="px-3 pb-3 max-h-[120px] overflow-y-auto">
                   {transcript ? (
-                    <p className="text-xs font-sans font-light text-[#F8F7F3]/70 leading-relaxed whitespace-pre-wrap">
-                      {transcript}
-                    </p>
+                    <p className="text-xs font-sans font-light text-[#F8F7F3]/70 leading-relaxed whitespace-pre-wrap">{transcript}</p>
                   ) : (
-                    <p className="text-xs font-sans font-light text-[#F8F7F3]/30 italic leading-relaxed">
-                      Start speaking…
-                    </p>
+                    <p className="text-xs font-sans font-light text-[#F8F7F3]/30 italic leading-relaxed">Start speaking…</p>
                   )}
                 </div>
               </div>
@@ -265,9 +435,7 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
 
             {/* Greeting */}
             <div className="px-6 pb-3">
-              <h2 className="text-lg font-serif font-light text-[#F8F7F3] leading-snug">
-                {greeting}
-              </h2>
+              <h2 className="text-lg font-serif font-light text-[#F8F7F3] leading-snug">{greeting}</h2>
             </div>
 
             {/* Daily Summary */}
@@ -277,22 +445,16 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
               </p>
             </div>
 
-            {/* Divider */}
             <div className="mx-6 border-t border-white/10 mb-4" />
 
             {/* Entry List */}
             <div className="flex-1 overflow-y-auto px-4">
               {entries.map((entry, i) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 px-2 py-2 rounded-lg text-[#F8F7F3]/70 transition-all duration-150"
-                >
+                <div key={i} className="flex items-center gap-2 px-2 py-2 rounded-lg text-[#F8F7F3]/70 transition-all duration-150">
                   <div className="w-4 h-4 rounded-full border border-[#F8F7F3]/25 flex-shrink-0" />
                   <span className="text-sm font-sans font-light">{entry}</span>
                 </div>
               ))}
-
-              {/* New Entry Input Row */}
               <div className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-white/8 transition-all duration-150 group">
                 <div className="w-4 h-4 rounded-full border border-[#F8F7F3]/25 group-hover:border-[#F8F7F3]/40 flex-shrink-0 transition-colors" />
                 <input
@@ -307,24 +469,129 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
             </div>
           </div>
 
-          {/* Right Panel — only visible md+ */}
-          <div className="hidden md:flex flex-1 items-center justify-center h-full">
-            <div className="flex flex-col items-center gap-4 text-center px-8 animate-in fade-in duration-500 delay-300">
-              {/* Chat bubble icon */}
-              <div className="w-14 h-14 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center mb-1">
-                <svg width="26" height="26" viewBox="0 0 24 24" fill="none" className="text-[#F8F7F3]/50">
-                  <path
-                    d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+          {/* ── Right Panel ── */}
+          <div className="hidden md:flex flex-col flex-1 h-full overflow-hidden">
+            {/* Right Panel Header */}
+            <div className="flex items-center justify-between px-6 pt-5 pb-3 border-b border-white/10 flex-shrink-0">
+              <div className="flex gap-1 bg-white/10 rounded-lg p-0.5">
+                {(["markdown", "graph"] as const).map((v) => (
+                  <button
+                    key={v}
+                    onClick={() => setRightView(v)}
+                    className={`px-3 py-1 text-xs font-sans font-medium rounded-md transition-all duration-200 capitalize ${
+                      rightView === v
+                        ? "bg-white/20 text-[#F8F7F3] shadow-sm"
+                        : "text-[#F8F7F3]/50 hover:text-[#F8F7F3]/75"
+                    }`}
+                  >
+                    {v === "markdown" ? "Markdown" : "Connections"}
+                  </button>
+                ))}
               </div>
-              <p className="text-sm text-[#F8F7F3]/50 font-sans font-light max-w-[200px] leading-relaxed">
-                Select or create a todo to open a chat.
-              </p>
+
+              {hasResults && rightView === "markdown" && (
+                <button
+                  onClick={handleCopyMarkdown}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg bg-white/10 hover:bg-white/18 border border-white/10 text-[#F8F7F3]/60 hover:text-[#F8F7F3] text-xs font-sans transition-all duration-200"
+                >
+                  {copied ? (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                        <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      Copied
+                    </>
+                  ) : (
+                    <>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                        <rect x="9" y="9" width="13" height="13" rx="2" stroke="currentColor" strokeWidth="1.8"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" strokeWidth="1.8"/>
+                      </svg>
+                      Copy
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+
+            {/* Right Panel Body */}
+            <div className="flex-1 overflow-hidden relative">
+              {/* Loading */}
+              {isExtracting && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                  <div className="w-8 h-8 rounded-full border-2 border-white/20 border-t-white/70 animate-spin" />
+                  <p className="text-sm text-[#F8F7F3]/50 font-sans font-light">Mapping your words…</p>
+                </div>
+              )}
+
+              {/* Error */}
+              {!isExtracting && extractError && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-8">
+                  <p className="text-sm text-red-300/70 font-sans font-light text-center">{extractError}</p>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!isExtracting && !extractError && !hasResults && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-center px-8">
+                  <div className="w-12 h-12 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center mb-1">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-[#F8F7F3]/40">
+                      <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="1.5"/>
+                      <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.93 4.93l2.12 2.12M16.95 16.95l2.12 2.12M4.93 19.07l2.12-2.12M16.95 7.05l2.12-2.12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  </div>
+                  <p className="text-sm text-[#F8F7F3]/40 font-sans font-light max-w-[220px] leading-relaxed">
+                    Record yourself speaking and your words will be mapped into a knowledge graph here.
+                  </p>
+                </div>
+              )}
+
+              {/* Results — Markdown */}
+              {!isExtracting && hasResults && rightView === "markdown" && (
+                <div className="h-full overflow-y-auto px-8 py-6">
+                  <pre className="whitespace-pre-wrap font-sans text-sm text-[#F8F7F3]/80 leading-relaxed font-light">
+                    {markdown}
+                  </pre>
+                </div>
+              )}
+
+              {/* Results — Connections graph */}
+              {!isExtracting && hasResults && rightView === "graph" && (
+                <div className="h-full overflow-y-auto px-6 py-6 flex flex-col gap-6">
+                  {/* SVG graph */}
+                  <div className="w-full flex items-center justify-center">
+                    <GraphView nodes={extractedNodes} edges={extractedEdges} />
+                  </div>
+
+                  {/* Node list */}
+                  <div className="grid grid-cols-1 gap-2">
+                    {extractedNodes.map((n) => (
+                      <div key={n.title} className="rounded-xl bg-white/8 border border-white/10 px-4 py-3">
+                        <p className="text-xs font-sans font-semibold text-[#F8F7F3]/80 mb-1">{n.title}</p>
+                        <p className="text-xs font-sans font-light text-[#F8F7F3]/55 leading-relaxed">{n.body}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Edge list */}
+                  {extractedEdges.length > 0 && (
+                    <div>
+                      <p className="text-[10px] tracking-widest uppercase font-sans font-medium text-[#F8F7F3]/35 mb-2">Connections</p>
+                      <div className="flex flex-col gap-1.5">
+                        {extractedEdges.map((e, i) => (
+                          <div key={i} className="flex items-center gap-2 text-xs font-sans text-[#F8F7F3]/60">
+                            <span className="font-medium text-[#F8F7F3]/75">{e.source}</span>
+                            <span className="text-[#F8F7F3]/30">→</span>
+                            {e.label && <span className="italic text-[#F8F7F3]/40">{e.label}</span>}
+                            {e.label && <span className="text-[#F8F7F3]/30">→</span>}
+                            <span className="font-medium text-[#F8F7F3]/75">{e.target}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
