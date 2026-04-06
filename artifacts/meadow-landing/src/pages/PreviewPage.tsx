@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface PreviewPageProps {
   name?: string;
@@ -11,12 +11,17 @@ function getGreeting(name: string): string {
   return `Good evening, ${name}`;
 }
 
-const TABS = ["Todo", "Inbox", "Flows"] as const;
+const TABS = ["Journal", "Artifacts"] as const;
 type Tab = (typeof TABS)[number];
 
 export default function PreviewPage({ name = "" }: PreviewPageProps) {
-  const [activeTab, setActiveTab] = useState<Tab>("Todo");
+  const [activeTab, setActiveTab] = useState<Tab>("Journal");
   const [today, setToday] = useState("");
+  const [entries, setEntries] = useState<string[]>([]);
+  const [newEntry, setNewEntry] = useState("");
+  const [isRecording, setIsRecording] = useState(false);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
     const d = new Date();
@@ -31,6 +36,41 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
 
   const displayName = name || "there";
   const greeting = getGreeting(displayName);
+
+  function handleNewEntryKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter" && newEntry.trim()) {
+      setEntries((prev) => [newEntry.trim(), ...prev]);
+      setNewEntry("");
+    }
+  }
+
+  useEffect(() => {
+    return () => {
+      mediaRecorderRef.current?.stop();
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+    };
+  }, []);
+
+  async function toggleRecording() {
+    if (isRecording) {
+      mediaRecorderRef.current?.stop();
+      streamRef.current?.getTracks().forEach((t) => t.stop());
+      mediaRecorderRef.current = null;
+      streamRef.current = null;
+      setIsRecording(false);
+    } else {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+        const recorder = new MediaRecorder(stream);
+        mediaRecorderRef.current = recorder;
+        recorder.start();
+        setIsRecording(true);
+      } catch {
+        // permission denied or not available — do nothing
+      }
+    }
+  }
 
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-[#F8F7F3] selection:bg-[#899E7F]/30">
@@ -56,7 +96,7 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
             {/* Branding */}
             <div className="px-6 pt-6 pb-4">
               <span className="text-xs tracking-[0.25em] font-medium uppercase text-[#F8F7F3]/70 font-sans">
-                Meadow
+                Monet
               </span>
             </div>
 
@@ -79,13 +119,34 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
               </div>
             </div>
 
-            {/* New Chat Button */}
+            {/* Voice Recording Button */}
             <div className="px-4 pb-4">
-              <button className="w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-white/10 hover:bg-white/18 border border-white/10 transition-all duration-200 text-[#F8F7F3]/75 hover:text-[#F8F7F3] text-sm font-sans font-light">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
-                  <path d="M12 5V19M5 12H19" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
-                </svg>
-                New Chat
+              <button
+                onClick={toggleRecording}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-xl border transition-all duration-200 text-sm font-sans font-light ${
+                  isRecording
+                    ? "bg-red-500/20 border-red-400/40 text-red-200 hover:bg-red-500/30"
+                    : "bg-white/10 hover:bg-white/18 border-white/10 text-[#F8F7F3]/75 hover:text-[#F8F7F3]"
+                }`}
+              >
+                {isRecording ? (
+                  <>
+                    <span className="relative flex-shrink-0 w-3 h-3">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                    </span>
+                    Stop Recording
+                  </>
+                ) : (
+                  <>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className="flex-shrink-0">
+                      <rect x="9" y="2" width="6" height="12" rx="3" stroke="currentColor" strokeWidth="1.8"/>
+                      <path d="M5 10a7 7 0 0 0 14 0" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                      <line x1="12" y1="19" x2="12" y2="22" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+                    </svg>
+                    Start Connecting...
+                  </>
+                )}
               </button>
             </div>
 
@@ -111,17 +172,32 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
             {/* Divider */}
             <div className="mx-6 border-t border-white/10 mb-4" />
 
-            {/* Todo List */}
+            {/* Entry List */}
             <div className="flex-1 overflow-y-auto px-4">
-              <div className="flex items-center gap-2 px-2 py-2 rounded-lg text-[#F8F7F3]/40 hover:text-[#F8F7F3]/60 hover:bg-white/8 transition-all duration-150 cursor-pointer group">
+              {entries.map((entry, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 px-2 py-2 rounded-lg text-[#F8F7F3]/70 transition-all duration-150"
+                >
+                  <div className="w-4 h-4 rounded-full border border-[#F8F7F3]/25 flex-shrink-0" />
+                  <span className="text-sm font-sans font-light">{entry}</span>
+                </div>
+              ))}
+
+              {/* New Entry Input Row */}
+              <div className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-white/8 transition-all duration-150 group">
                 <div className="w-4 h-4 rounded-full border border-[#F8F7F3]/25 group-hover:border-[#F8F7F3]/40 flex-shrink-0 transition-colors" />
-                <span className="text-sm font-sans font-light italic">New...</span>
+                <input
+                  type="text"
+                  value={newEntry}
+                  onChange={(e) => setNewEntry(e.target.value)}
+                  onKeyDown={handleNewEntryKeyDown}
+                  placeholder="New..."
+                  className="flex-1 bg-transparent text-sm font-sans font-light text-[#F8F7F3]/80 placeholder:text-[#F8F7F3]/40 placeholder:italic outline-none caret-[#F8F7F3]/60"
+                />
               </div>
             </div>
           </div>
-
-          {/* Vertical Divider (hidden on mobile, shown on md+) */}
-          {/* Already handled by border-r above */}
 
           {/* Right Panel — only visible md+ */}
           <div className="hidden md:flex flex-1 items-center justify-center h-full">
