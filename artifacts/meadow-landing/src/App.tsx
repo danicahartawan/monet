@@ -4,7 +4,6 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import moulin from "@assets/moulin_1775445825141.jpg";
-import winter from "@assets/card-Monet-Winter-1000x570.jpg_1775445827952.webp";
 import PreviewPage from "./pages/PreviewPage";
 
 const queryClient = new QueryClient();
@@ -35,16 +34,15 @@ function Home() {
 
   return (
     <div className="relative min-h-[100dvh] w-full overflow-hidden flex items-center justify-center p-4 selection:bg-white/30">
-      {/* Background Paintings */}
-      <div className="absolute inset-0 pointer-events-none flex">
-        <img src={moulin} alt="" className="w-1/2 h-full object-cover object-center" />
-        <img src={winter} alt="" className="w-1/2 h-full object-cover object-center" />
+      {/* Background Painting */}
+      <div className="absolute inset-0 pointer-events-none">
+        <img src={moulin} alt="" className="w-full h-full object-cover object-center" style={{ filter: 'blur(4px)', transform: 'scale(1.04)' }} />
         <div className="absolute inset-0 bg-black/30" />
       </div>
 
       {/* Main Card */}
       <div 
-        className="relative z-10 w-full max-w-xl mx-auto bg-[#6f8364]/30 backdrop-blur-2xl border border-white/20 p-10 md:p-14 rounded-[40px] shadow-2xl animate-in fade-in zoom-in-95 duration-1000 flex flex-col justify-between min-h-[500px]"
+        className="relative z-10 w-full max-w-md mx-auto bg-[#6f8364]/30 backdrop-blur-2xl border border-white/20 p-8 md:p-10 rounded-[32px] shadow-2xl animate-in fade-in zoom-in-95 duration-1000 flex flex-col justify-between min-h-[400px]"
         style={{ 
           boxShadow: "0 25px 50px -12px rgba(111, 131, 100, 0.25), inset 0 1px 0 rgba(255,255,255,0.2)",
         }}
@@ -56,20 +54,20 @@ function Home() {
         </div>
 
         <div className="flex flex-col text-[#F8F7F3]">
-          <h2 className="text-xs tracking-[0.25em] font-medium uppercase opacity-75 mb-24 font-sans mix-blend-overlay">
+          <h2 className="text-xs tracking-[0.25em] font-medium uppercase opacity-75 mb-14 font-serif mix-blend-overlay">
             Monet
           </h2>
           
-          <h1 className="text-5xl md:text-[64px] font-serif font-light tracking-tight leading-[1.1] mb-6">
+          <h1 className="text-4xl md:text-[48px] font-serif font-light tracking-tight leading-[1.1] mb-4">
             organize your mind.
           </h1>
           
-          <p className="text-lg md:text-[22px] font-sans font-light opacity-90 leading-[1.6] max-w-[400px]">
+          <p className="text-base md:text-lg font-serif font-light opacity-90 leading-[1.6] max-w-[340px]">
             monet is an intelligent, voice-powered AI assistant designed to be your personal thought partner.
           </p>
         </div>
 
-        <div className="mt-16 pt-6 border-t border-[#F8F7F3]/20">
+        <div className="mt-10 pt-5 border-t border-[#F8F7F3]/20">
           {status === "success" ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 h-[40px] flex items-center">
               <p className="text-lg font-serif italic text-[#F8F7F3] opacity-90">
@@ -85,7 +83,7 @@ function Home() {
                 placeholder="join the waitlist" 
                 required
                 disabled={status === "submitting"}
-                className="w-full bg-transparent border-none outline-none text-[#F8F7F3] placeholder:text-[#F8F7F3]/60 font-sans text-[22px] font-light focus:ring-0 disabled:opacity-50"
+                className="w-full bg-transparent border-none outline-none text-[#F8F7F3] placeholder:text-[#F8F7F3]/60 font-serif text-[17px] font-light focus:ring-0 disabled:opacity-50"
                 data-testid="input-email"
               />
               <button 
