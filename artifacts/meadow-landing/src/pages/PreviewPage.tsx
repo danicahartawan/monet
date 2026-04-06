@@ -175,9 +175,6 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
           <div className="flex flex-col w-full md:w-[300px] md:min-w-[260px] md:max-w-[320px] h-full md:border-r border-white/15 flex-shrink-0">
             {/* Branding */}
             <div className="px-6 pt-6 pb-4">
-              <span className="text-xs tracking-[0.25em] font-medium uppercase text-[#F8F7F3]/70 font-sans">
-                Monet
-              </span>
             </div>
 
             {/* Tabs */}

@@ -47,19 +47,9 @@ function Home() {
           boxShadow: "0 25px 50px -12px rgba(111, 131, 100, 0.25), inset 0 1px 0 rgba(255,255,255,0.2)",
         }}
       >
-        <div className="absolute top-10 right-10 opacity-80 mix-blend-overlay">
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM17 15.5H15.5V10.5C15.5 9.67 14.83 9 14 9C13.17 9 12.5 9.67 12.5 10.5V15.5H11V10.5C11 9.67 10.33 9 9.5 9C8.67 9 8 9.67 8 10.5V15.5H6.5V9.5H8V10.25C8.42 9.5 9.25 9 10 9C10.92 9 11.67 9.58 12 10.33C12.33 9.58 13.08 9 14 9C15.38 9 16.5 10.12 16.5 11.5V15.5H17Z" fill="#F8F7F3"/>
-          </svg>
-        </div>
-
         <div className="flex flex-col text-[#F8F7F3]">
-          <h2 className="text-xs tracking-[0.25em] font-medium uppercase opacity-75 mb-14 font-serif mix-blend-overlay">
-            Monet
-          </h2>
-          
           <h1 className="text-4xl md:text-[48px] font-serif font-light tracking-tight leading-[1.1] mb-4">
-            organize your mind.
+            map your mind.
           </h1>
           
           <p className="text-base md:text-lg font-serif font-light opacity-90 leading-[1.6] max-w-[340px]">
@@ -80,7 +70,7 @@ function Home() {
                 type="email" 
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="join the waitlist" 
+                placeholder="email here!" 
                 required
                 disabled={status === "submitting"}
                 className="w-full bg-transparent border-none outline-none text-[#F8F7F3] placeholder:text-[#F8F7F3]/60 font-serif text-[17px] font-light focus:ring-0 disabled:opacity-50"
