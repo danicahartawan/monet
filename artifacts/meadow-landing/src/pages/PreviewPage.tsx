@@ -335,13 +335,15 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
 
   return (
     <div className="relative h-[100dvh] w-full overflow-hidden bg-[#F8F7F3] selection:bg-[#899E7F]/30">
-      {/* Background Blobs */}
+      {/* Thames Painting Background */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="blob bg-[#899E7F] w-[600px] h-[600px] top-[-100px] left-[-100px] mix-blend-multiply opacity-30" style={{ animationDelay: "0s" }}></div>
-        <div className="blob bg-[#A2B395] w-[500px] h-[500px] top-[10%] right-[-50px] mix-blend-multiply opacity-40" style={{ animationDelay: "2s", animationDuration: "25s" }}></div>
-        <div className="blob bg-[#D3DABF] w-[700px] h-[700px] bottom-[-200px] left-[10%] mix-blend-multiply opacity-50" style={{ animationDelay: "4s", animationDuration: "22s" }}></div>
-        <div className="blob bg-[#718568] w-[400px] h-[400px] bottom-[20%] right-[15%] mix-blend-multiply opacity-20" style={{ animationDelay: "6s", animationDuration: "18s" }}></div>
-        <div className="blob bg-[#C6D2B1] w-[600px] h-[600px] top-[30%] left-[30%] mix-blend-multiply opacity-30" style={{ animationDelay: "8s", animationDuration: "28s" }}></div>
+        <img
+          src="/thames-painting.jpeg"
+          alt=""
+          className="absolute inset-0 w-full h-full object-cover scale-110"
+          style={{ filter: "blur(40px)" }}
+        />
+        <div className="absolute inset-0 bg-white/20" />
       </div>
 
       {/* App Window */}
