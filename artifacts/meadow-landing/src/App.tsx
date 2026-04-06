@@ -48,9 +48,12 @@ function Home() {
         }}
       >
         <div className="flex flex-col text-[#F8F7F3]">
-          <h1 className="text-4xl md:text-[48px] font-serif font-light tracking-tight leading-[1.1] mb-4">
-            map your mind.
-          </h1>
+          <div className="flex items-center gap-3 mb-4">
+            <h1 className="text-4xl md:text-[48px] font-serif font-light tracking-tight leading-[1.1]">
+              map your mind.
+            </h1>
+            <img src="/logo-white.png" alt="Monet logo" className="h-10 md:h-12 w-auto" />
+          </div>
           
           <p className="text-base md:text-lg font-serif font-light opacity-90 leading-[1.6] max-w-[340px]">
             monet is an intelligent, voice-powered AI assistant designed to be your personal thought partner.
