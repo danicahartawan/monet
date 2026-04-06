@@ -1,0 +1,266 @@
+Memos - Capture thoughts instantly. Own them completely.
+MemosMemos
+Documentation
+Blog
+Changelog
+Features
+Pricing
+Search
+⌘
+K
+
+Latest Release
+v0.26.2
+Capture freely.
+Own completely.
+A private timeline for your thoughts. Self-hosted, Markdown-native, and built to stay out of your way.
+
+Self-hosted
+Markdown-native
+MIT licensed
+Get Started
+Live Demo
+Inside Memos
+
+A calm timeline for notes, logs, reading lists, and the small things worth keeping.
+
+Private by default
+Apr 1, 2026 · 9:20 AM
+
+💡refactor auth — finally
+#dev
+#ideas
+Been staring at the same auth check copy-pasted across 9 handlers. Moving it to middleware. Should delete ~40 lines and finally make the codebase feel sane.
+
+Token refresh is also duplicated in three places — same fix. Want to prototype this tonight before I forget the mental model.
+
+👍
+3
+👀
+5
+Mar 29, 2026 · 9:52 PM
+
+🐳Memos on my Pi — it works!!
+#self-hosted
+#setup
+Finally got it running on the Pi 4 gathering dust on my desk. One command, under 3 minutes. Data lives on the SD card. Nothing goes to the cloud.
+
+docker run -d --name memos \
+  -p 5230:5230 \
+  -v ~/.memos/:/var/opt/memos \
+  neosmemo/memos:stable
+Pinned
+Apr 5, 2026 · 2:44 AM
+
+📋Today's log
+#daily
+#log
+Done
+Reviewed PR #482 — approved, finally unblocked Chen
+Squashed that dark mode flicker bug (was a z-index mess)
+Still need to do
+Write the v0.26 changelog before someone asks again
+Auto-linked 2 related memos
+Apr 3, 2026 · 5:40 PM
+
+🔖tabs I need to close
+#reading
+#links
+Good stuff I actually want to read, not just stash and forget.
+
+Local-first software — the long-term caseinkandswitch.com
+SQLite is not a toy databaseantonz.org
+Why I stopped paying for note appsmacwright.com
+1 comment
+Apr 3, 2026 · 9:57 AM
+
+☕slow morning, good coffee
+#journal
+#personal
+Sitting at the little café by Yoyogi Park. Ordered the wrong thing off the menu but it turned out great.
+
+Finally deleted my Notion account this week. Everything's in Memos now, running on the old ThinkPad in the closet. Weirdly freeing — these notes are just mine, sitting on a machine I can touch.
+
+[48.86°, 2.35°]
+Tokyo, Shibuya, Japan
+Private
+Your notes, your way
+04 / 05
+
+Explore Memos
+
+Start with the pages that explain the product plainly.
+Documentation, release notes, product context, and practical entry points for people evaluating Memos for real use.
+
+01
+Read the Memos documentation
+Installation, deployment, configuration, and API guides for self-hosted Memos.
+
+02
+Explore the Memos blog
+Product stories, technical write-ups, and updates from the team behind Memos.
+
+03
+Browse Memos release notes
+Track new features, fixes, and version-by-version changes across recent releases.
+
+04
+Compare Memos features
+See the core product capabilities for quick capture, Markdown notes, and self-hosting.
+
+05
+Review Memos pricing
+Understand the self-hosted cost model, including what is free and what infrastructure you bring.
+
+06
+Discover Memos use cases
+See how developers, writers, self-hosters, and teams use Memos in practice.
+
+Overview
+Why Memos?
+A focused tool for quick capture, plain-text notes, and long-term control over your own data.
+
+Explore All Features
+Total Data Ownership
+Your notes live on your server, in your database, in plain Markdown. Zero telemetry, zero tracking.
+
+Instant Capture
+Open Memos, type, done. No folder navigation, no template selection. Capture first, organize later.
+
+Markdown-Native
+Write in plain text that lasts. No proprietary formats, no vendor lock-in. Back up with a single file copy.
+
+Runs Anywhere
+From a Raspberry Pi to your own cloud. A ~20MB Docker image, one command to deploy, running in under 5 minutes.
+
+Open Source, MIT Licensed
+The code is yours as much as the notes are. 57K+ stars, 370+ contributors, built in the open.
+
+Free, Forever
+Every feature. Every update. No paywalls, no tiers, no surprise fees. Self-hosting means no costs to pass on.
+
+Overview
+Who Uses Memos?
+Developers, writers, self-hosters, and anyone who wants a faster way to save a thought.
+
+Explore All Use Cases
+01
+Self-Hosters
+Infrastructure docs & configs
+
+02
+Family
+Private updates & shared memories
+
+03
+Developers
+Code snippets & debugging logs
+
+04
+Writers
+Draft stories & capture ideas
+
+05
+Journals
+Daily notes & idea trails
+
+06
+Makers
+Project logs & ideas
+
+07
+Students
+Lecture notes & research
+
+08
+Privacy Pros
+Confidential information
+
+Built Together, in the Open
+Community-driven from day one. Every contributor shapes what Memos becomes.
+
+57K+
+GitHub Stars
+370+
+Contributors
+8.5M+
+Docker Pulls
+80+
+Releases
+Overview
+One Command. Running in Minutes.
+A single Docker command gets you from zero to capturing thoughts.
+
+View all deployment options
+→
+Docker
+One command to start your Memos server
+
+docker run -d --name memos \
+  -p 5230:5230 \
+  -v ~/.memos/:/var/opt/memos \
+  neosmemo/memos:stable
+
+Community
+Supported by people who want Memos to last.
+A small group of sponsors helps keep the project shipping, documented, and available to everyone.
+
+Warp logo
+The best way to code with Al agents. Prompt, review, edit, and ship.
+
+TestMu AI logo
+The world's first full-stack Agentic AI Quality Engineering platform.
+
+SSD Nodes logo
+Affordable VPS hosting for self-hosters.
+
+ads via Carbon
+Frontend Masters - Your Path to Becoming a Career-Ready Web Developer!
+ads via Carbon
+View all sponsors and backers
+→
+Scratchpad
+Type. Save. Done.
+A browser-based scratchpad for when you just need to write something down. It stores locally and can sync to Memos when you are ready.
+
+Launch Scratchpad
+Works entirely in your browser—no account needed
+Drag-and-drop interface for quick organization
+Supports text notes and file attachments
+Optional sync to your self-hosted Memos instance
+Text Note
+Quick Idea
+Attachment
+Start Here
+Your Thoughts.
+Your Server.
+Your Rules.
+Deploy Memos in minutes. Capture thoughts in Markdown, on infrastructure you control.
+
+Install Now
+View on GitHub
+Explore
+Documentation
+Blog
+Changelog
+Features
+Pricing
+Use Cases
+Features
+Self-Hosted
+Open Source
+Rich Markdown
+API & Integrations
+View all features
+Community
+API Reference
+Live Demo
+GitHub
+Discord
+X / Twitter
+Privacy Policy
+Resources
+Brand Guidelines
+Sponsors
+MIT License
+Report an Issue
