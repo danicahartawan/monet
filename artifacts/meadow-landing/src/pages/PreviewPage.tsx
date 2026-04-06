@@ -121,44 +121,99 @@ function computePositions(nodes: ExtractedNode[]): Record<string, { x: number; y
 }
 
 function GraphView({ nodes, edges }: { nodes: ExtractedNode[]; edges: ExtractedEdge[] }) {
+  const initPositions = useMemo(() => computePositions(nodes), [nodes]);
+  const [nodePos, setNodePos] = useState<Record<string, { x: number; y: number }>>({});
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const dragging = useRef(false);
+  const [zoom, setZoom] = useState(1);
+
+  // Sync nodePos when nodes change
+  useEffect(() => { setNodePos(initPositions); setPan({ x: 0, y: 0 }); setZoom(1); }, [initPositions]);
+
+  const mode = useRef<"none" | "pan" | "node">("none");
+  const draggingNode = useRef<string | null>(null);
   const lastPt = useRef({ x: 0, y: 0 });
+  const svgRef = useRef<SVGSVGElement>(null);
 
-  const positions = useMemo(() => computePositions(nodes), [nodes]);
+  const positions = Object.keys(nodePos).length > 0 ? nodePos : initPositions;
 
-  function onPointerDown(e: React.PointerEvent<SVGSVGElement>) {
-    dragging.current = true;
+  function getSVGRect() {
+    return svgRef.current?.getBoundingClientRect() ?? { left: 0, top: 0 };
+  }
+
+  function onPointerDownNode(e: React.PointerEvent<SVGGElement>, title: string) {
+    e.stopPropagation();
+    mode.current = "node";
+    draggingNode.current = title;
+    lastPt.current = { x: e.clientX, y: e.clientY };
+    (e.currentTarget as Element).setPointerCapture(e.pointerId);
+  }
+
+  function onPointerDownCanvas(e: React.PointerEvent<SVGSVGElement>) {
+    mode.current = "pan";
     lastPt.current = { x: e.clientX, y: e.clientY };
     (e.target as Element).setPointerCapture(e.pointerId);
   }
+
   function onPointerMove(e: React.PointerEvent<SVGSVGElement>) {
-    if (!dragging.current) return;
     const dx = e.clientX - lastPt.current.x;
     const dy = e.clientY - lastPt.current.y;
     lastPt.current = { x: e.clientX, y: e.clientY };
-    setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
+
+    if (mode.current === "pan") {
+      setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
+    } else if (mode.current === "node" && draggingNode.current) {
+      const title = draggingNode.current;
+      setNodePos((prev) => {
+        const p = prev[title];
+        if (!p) return prev;
+        return { ...prev, [title]: { x: p.x + dx / zoom, y: p.y + dy / zoom } };
+      });
+    }
   }
-  function onPointerUp() { dragging.current = false; }
+
+  function onPointerUp() {
+    mode.current = "none";
+    draggingNode.current = null;
+  }
+
+  function onWheel(e: React.WheelEvent<SVGSVGElement>) {
+    e.preventDefault();
+    const rect = getSVGRect();
+    const cx = e.clientX - rect.left;
+    const cy = e.clientY - rect.top;
+    const factor = e.deltaY < 0 ? 1.12 : 1 / 1.12;
+    setZoom((z) => {
+      const newZ = Math.min(4, Math.max(0.15, z * factor));
+      setPan((p) => ({
+        x: cx - (cx - p.x) * (newZ / z),
+        y: cy - (cy - p.y) * (newZ / z),
+      }));
+      return newZ;
+    });
+  }
 
   if (nodes.length === 0) return null;
 
+  const isCursorGrab = mode.current === "pan" ? "grabbing" : mode.current === "node" ? "move" : "grab";
+
   return (
     <svg
+      ref={svgRef}
       width="100%"
       height="100%"
-      style={{ cursor: dragging.current ? "grabbing" : "grab", userSelect: "none" }}
-      onPointerDown={onPointerDown}
+      style={{ cursor: isCursorGrab, userSelect: "none", touchAction: "none" }}
+      onPointerDown={onPointerDownCanvas}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerLeave={onPointerUp}
+      onWheel={onWheel}
     >
       <defs>
         <marker id="arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
           <path d="M0,0.5 L0,6.5 L6,3.5 z" fill="rgba(255,255,255,0.35)" />
         </marker>
       </defs>
-      <g transform={`translate(${pan.x}, ${pan.y})`}>
+      <g transform={`translate(${pan.x},${pan.y}) scale(${zoom})`}>
         {edges.map((e, i) => {
           const s = positions[e.source];
           const t = positions[e.target];
@@ -182,19 +237,12 @@ function GraphView({ nodes, edges }: { nodes: ExtractedNode[]; edges: ExtractedE
                 d={`M${x1},${y1} Q${cpx},${cpy} ${x2},${y2}`}
                 fill="none"
                 stroke="rgba(255,255,255,0.28)"
-                strokeWidth="1.2"
+                strokeWidth={1.2 / zoom}
                 markerEnd="url(#arr)"
               />
               {e.label && (
-                <text
-                  x={cpx} y={cpy - 6}
-                  textAnchor="middle"
-                  fontSize="9"
-                  fill="rgba(255,255,255,0.38)"
-                  fontFamily="sans-serif"
-                >
-                  {e.label}
-                </text>
+                <text x={cpx} y={cpy - 6} textAnchor="middle" fontSize={9 / zoom}
+                  fill="rgba(255,255,255,0.38)" fontFamily="sans-serif">{e.label}</text>
               )}
             </g>
           );
@@ -202,6 +250,7 @@ function GraphView({ nodes, edges }: { nodes: ExtractedNode[]; edges: ExtractedE
 
         {nodes.map((n) => {
           const p = positions[n.title];
+          if (!p) return null;
           const words = n.title.split(" ");
           const lines: string[] = [];
           let cur = "";
@@ -211,26 +260,25 @@ function GraphView({ nodes, edges }: { nodes: ExtractedNode[]; edges: ExtractedE
           }
           if (cur) lines.push(cur);
           return (
-            <g key={n.title}>
-              <circle
-                cx={p.x} cy={p.y} r={NODE_R}
-                fill="rgba(255,255,255,0.90)"
-                stroke="rgba(255,255,255,0.6)"
-                strokeWidth="1.5"
+            <g
+              key={n.title}
+              style={{ cursor: "move" }}
+              onPointerDown={(e) => onPointerDownNode(e, n.title)}
+            >
+              <circle cx={p.x} cy={p.y} r={NODE_R}
+                fill="rgba(255,255,255,0.92)"
+                stroke="rgba(255,255,255,0.55)"
+                strokeWidth={1.5 / zoom}
               />
               {lines.map((line, li) => (
-                <text
-                  key={li}
-                  x={p.x}
-                  y={p.y + NODE_R + 14 + li * 12}
+                <text key={li}
+                  x={p.x} y={p.y + NODE_R + (14 + li * 12) / zoom}
                   textAnchor="middle"
-                  fontSize="10"
+                  fontSize={10 / zoom}
                   fill="rgba(255,255,255,0.85)"
                   fontFamily="sans-serif"
                   fontWeight="400"
-                >
-                  {line}
-                </text>
+                >{line}</text>
               ))}
             </g>
           );
