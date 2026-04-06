@@ -3,6 +3,8 @@ import { Switch, Route, Router as WouterRouter } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import moulin from "@assets/moulin_1775445825141.jpg";
+import winter from "@assets/card-Monet-Winter-1000x570.jpg_1775445827952.webp";
 
 const queryClient = new QueryClient();
 
@@ -20,17 +22,12 @@ function Home() {
   };
 
   return (
-    <div className="relative min-h-[100dvh] w-full overflow-hidden bg-[#F8F7F3] flex items-center justify-center p-4 selection:bg-[#899E7F]/30">
-      {/* Background Blobs */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="blob bg-[#899E7F] w-[600px] h-[600px] top-[-100px] left-[-100px] mix-blend-multiply opacity-30" style={{ animationDelay: "0s" }}></div>
-        <div className="blob bg-[#A2B395] w-[500px] h-[500px] top-[10%] right-[-50px] mix-blend-multiply opacity-40" style={{ animationDelay: "2s", animationDuration: "25s" }}></div>
-        <div className="blob bg-[#D3DABF] w-[700px] h-[700px] bottom-[-200px] left-[10%] mix-blend-multiply opacity-50" style={{ animationDelay: "4s", animationDuration: "22s" }}></div>
-        <div className="blob bg-[#718568] w-[400px] h-[400px] bottom-[20%] right-[15%] mix-blend-multiply opacity-20" style={{ animationDelay: "6s", animationDuration: "18s" }}></div>
-        <div className="blob bg-[#C6D2B1] w-[600px] h-[600px] top-[30%] left-[30%] mix-blend-multiply opacity-30" style={{ animationDelay: "8s", animationDuration: "28s" }}></div>
-        <div className="blob bg-[#9eb08d] w-[450px] h-[450px] top-[60%] right-[30%] mix-blend-multiply opacity-35" style={{ animationDelay: "3s", animationDuration: "20s" }}></div>
-        <div className="blob bg-[#b1c3a1] w-[550px] h-[550px] top-[-50px] left-[40%] mix-blend-multiply opacity-45" style={{ animationDelay: "5s", animationDuration: "24s" }}></div>
-        <div className="blob bg-[#5e7154] w-[350px] h-[350px] bottom-[-50px] right-[-50px] mix-blend-multiply opacity-25" style={{ animationDelay: "7s", animationDuration: "26s" }}></div>
+    <div className="relative min-h-[100dvh] w-full overflow-hidden flex items-center justify-center p-4 selection:bg-white/30">
+      {/* Background Paintings */}
+      <div className="absolute inset-0 pointer-events-none flex">
+        <img src={moulin} alt="" className="w-1/2 h-full object-cover object-center" />
+        <img src={winter} alt="" className="w-1/2 h-full object-cover object-center" />
+        <div className="absolute inset-0 bg-black/30" />
       </div>
 
       {/* Main Card */}
@@ -48,7 +45,7 @@ function Home() {
 
         <div className="flex flex-col text-[#F8F7F3]">
           <h2 className="text-xs tracking-[0.25em] font-medium uppercase opacity-75 mb-24 font-sans mix-blend-overlay">
-            Meadow
+            Monet
           </h2>
           
           <h1 className="text-5xl md:text-[64px] font-serif font-light tracking-tight leading-[1.1] mb-6">
@@ -56,7 +53,7 @@ function Home() {
           </h1>
           
           <p className="text-lg md:text-[22px] font-sans font-light opacity-90 leading-[1.6] max-w-[400px]">
-            meadow is an intelligent, voice-powered AI assistant designed to be your personal thought partner.
+            monet is an intelligent, voice-powered AI assistant designed to be your personal thought partner.
           </p>
         </div>
 
