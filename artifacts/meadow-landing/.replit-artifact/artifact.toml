@@ -1,6 +1,6 @@
 kind = "web"
 previewPath = "/"
-title = "Meadow Landing Page"
+title = "Monet Landing Page"
 version = "1.0.0"
 id = "artifacts/meadow-landing"
 router = "path"
@@ -15,10 +15,10 @@ paths = [ "/" ]
 localPort = 24718
 
 [services.development]
-run = "pnpm --filter @workspace/meadow-landing run dev"
+run = "pnpm --filter @workspace/monet-landing run dev"
 
 [services.production]
-build = [ "pnpm", "--filter", "@workspace/meadow-landing", "run", "build" ]
+build = [ "pnpm", "--filter", "@workspace/monet-landing", "run", "build" ]
 publicDir = "artifacts/meadow-landing/dist/public"
 serve = "static"
 
