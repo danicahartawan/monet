@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 interface PreviewPageProps {
   name?: string;
@@ -63,106 +63,179 @@ function buildMarkdown(nodes: ExtractedNode[], edges: ExtractedEdge[]): string {
   return parts.join("\n\n---\n\n");
 }
 
+function hashStr(str: string): number {
+  let h = 5381;
+  for (let i = 0; i < str.length; i++) h = ((h << 5) + h + str.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function seededRng(seed: number) {
+  let s = seed >>> 0;
+  return () => {
+    s = (Math.imul(1664525, s) + 1013904223) >>> 0;
+    return s / 0x100000000;
+  };
+}
+
+const NODE_R = 22;
+const VW = 720;
+const VH = 500;
+const PAD = 80;
+
+function computePositions(nodes: ExtractedNode[]): Record<string, { x: number; y: number }> {
+  if (nodes.length === 0) return {};
+  const seed = nodes.reduce((acc, n) => acc + hashStr(n.title), 0);
+  const rng = seededRng(seed);
+
+  const pts = nodes.map((n) => ({
+    title: n.title,
+    x: PAD + rng() * (VW - PAD * 2),
+    y: PAD + rng() * (VH - PAD * 2),
+  }));
+
+  const minD = NODE_R * 3.5;
+  for (let iter = 0; iter < 40; iter++) {
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const dx = pts[j].x - pts[i].x;
+        const dy = pts[j].y - pts[i].y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 0.001;
+        if (dist < minD) {
+          const push = (minD - dist) / 2 + 1;
+          const nx = (dx / dist) * push;
+          const ny = (dy / dist) * push;
+          pts[i].x -= nx; pts[i].y -= ny;
+          pts[j].x += nx; pts[j].y += ny;
+        }
+      }
+    }
+    for (const p of pts) {
+      p.x = Math.max(PAD, Math.min(VW - PAD, p.x));
+      p.y = Math.max(PAD, Math.min(VH - PAD, p.y));
+    }
+  }
+
+  const result: Record<string, { x: number; y: number }> = {};
+  for (const p of pts) result[p.title] = { x: p.x, y: p.y };
+  return result;
+}
+
 function GraphView({ nodes, edges }: { nodes: ExtractedNode[]; edges: ExtractedEdge[] }) {
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragging = useRef(false);
+  const lastPt = useRef({ x: 0, y: 0 });
+
+  const positions = useMemo(() => computePositions(nodes), [nodes]);
+
+  function onPointerDown(e: React.PointerEvent<SVGSVGElement>) {
+    dragging.current = true;
+    lastPt.current = { x: e.clientX, y: e.clientY };
+    (e.target as Element).setPointerCapture(e.pointerId);
+  }
+  function onPointerMove(e: React.PointerEvent<SVGSVGElement>) {
+    if (!dragging.current) return;
+    const dx = e.clientX - lastPt.current.x;
+    const dy = e.clientY - lastPt.current.y;
+    lastPt.current = { x: e.clientX, y: e.clientY };
+    setPan((p) => ({ x: p.x + dx, y: p.y + dy }));
+  }
+  function onPointerUp() { dragging.current = false; }
+
   if (nodes.length === 0) return null;
 
-  const W = 520;
-  const H = 360;
-  const cx = W / 2;
-  const cy = H / 2;
-  const R = Math.min(cx, cy) - 64;
-
-  const angleStep = (2 * Math.PI) / nodes.length;
-  const positions: Record<string, { x: number; y: number }> = {};
-  nodes.forEach((n, i) => {
-    const angle = angleStep * i - Math.PI / 2;
-    positions[n.title] = {
-      x: nodes.length === 1 ? cx : cx + R * Math.cos(angle),
-      y: nodes.length === 1 ? cy : cy + R * Math.sin(angle),
-    };
-  });
-
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" style={{ maxHeight: 360 }}>
+    <svg
+      width="100%"
+      height="100%"
+      style={{ cursor: dragging.current ? "grabbing" : "grab", userSelect: "none" }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerLeave={onPointerUp}
+    >
       <defs>
-        <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
-          <path d="M0,0 L0,6 L6,3 z" fill="rgba(248,247,243,0.4)" />
+        <marker id="arr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <path d="M0,0.5 L0,6.5 L6,3.5 z" fill="rgba(255,255,255,0.35)" />
         </marker>
       </defs>
+      <g transform={`translate(${pan.x}, ${pan.y})`}>
+        {edges.map((e, i) => {
+          const s = positions[e.source];
+          const t = positions[e.target];
+          if (!s || !t) return null;
+          const dx = t.x - s.x;
+          const dy = t.y - s.y;
+          const len = Math.sqrt(dx * dx + dy * dy) || 1;
+          const x1 = s.x + (dx / len) * NODE_R;
+          const y1 = s.y + (dy / len) * NODE_R;
+          const x2 = t.x - (dx / len) * (NODE_R + 7);
+          const y2 = t.y - (dy / len) * (NODE_R + 7);
+          const mx = (x1 + x2) / 2;
+          const my = (y1 + y2) / 2;
+          const perp = { x: -(y2 - y1), y: x2 - x1 };
+          const plen = Math.sqrt(perp.x * perp.x + perp.y * perp.y) || 1;
+          const cpx = mx + (perp.x / plen) * 24;
+          const cpy = my + (perp.y / plen) * 24;
+          return (
+            <g key={i}>
+              <path
+                d={`M${x1},${y1} Q${cpx},${cpy} ${x2},${y2}`}
+                fill="none"
+                stroke="rgba(255,255,255,0.28)"
+                strokeWidth="1.2"
+                markerEnd="url(#arr)"
+              />
+              {e.label && (
+                <text
+                  x={cpx} y={cpy - 6}
+                  textAnchor="middle"
+                  fontSize="9"
+                  fill="rgba(255,255,255,0.38)"
+                  fontFamily="sans-serif"
+                >
+                  {e.label}
+                </text>
+              )}
+            </g>
+          );
+        })}
 
-      {edges.map((e, i) => {
-        const s = positions[e.source];
-        const t = positions[e.target];
-        if (!s || !t) return null;
-        const mx = (s.x + t.x) / 2;
-        const my = (s.y + t.y) / 2;
-        const dx = t.x - s.x;
-        const dy = t.y - s.y;
-        const len = Math.sqrt(dx * dx + dy * dy) || 1;
-        const nodeR = 28;
-        const sx = s.x + (dx / len) * nodeR;
-        const sy = s.y + (dy / len) * nodeR;
-        const tx = t.x - (dx / len) * (nodeR + 6);
-        const ty = t.y - (dy / len) * (nodeR + 6);
-
-        return (
-          <g key={i}>
-            <line
-              x1={sx} y1={sy} x2={tx} y2={ty}
-              stroke="rgba(248,247,243,0.25)"
-              strokeWidth="1.5"
-              markerEnd="url(#arrow)"
-            />
-            {e.label && (
-              <text
-                x={mx} y={my - 6}
-                textAnchor="middle"
-                className="font-sans"
-                fontSize="9"
-                fill="rgba(248,247,243,0.45)"
-              >
-                {e.label}
-              </text>
-            )}
-          </g>
-        );
-      })}
-
-      {nodes.map((n) => {
-        const p = positions[n.title];
-        const words = n.title.split(" ");
-        const lines: string[] = [];
-        let current = "";
-        for (const w of words) {
-          if ((current + " " + w).trim().length > 10 && current) {
-            lines.push(current);
-            current = w;
-          } else {
-            current = current ? current + " " + w : w;
+        {nodes.map((n) => {
+          const p = positions[n.title];
+          const words = n.title.split(" ");
+          const lines: string[] = [];
+          let cur = "";
+          for (const w of words) {
+            if (cur && (cur + " " + w).length > 11) { lines.push(cur); cur = w; }
+            else cur = cur ? cur + " " + w : w;
           }
-        }
-        if (current) lines.push(current);
-
-        return (
-          <g key={n.title}>
-            <circle cx={p.x} cy={p.y} r={28} fill="rgba(248,247,243,0.12)" stroke="rgba(248,247,243,0.3)" strokeWidth="1" />
-            {lines.map((line, li) => (
-              <text
-                key={li}
-                x={p.x}
-                y={p.y + (li - (lines.length - 1) / 2) * 11}
-                textAnchor="middle"
-                dominantBaseline="middle"
-                fontSize="9"
-                fill="rgba(248,247,243,0.85)"
-                className="font-sans"
-              >
-                {line}
-              </text>
-            ))}
-          </g>
-        );
-      })}
+          if (cur) lines.push(cur);
+          return (
+            <g key={n.title}>
+              <circle
+                cx={p.x} cy={p.y} r={NODE_R}
+                fill="rgba(255,255,255,0.90)"
+                stroke="rgba(255,255,255,0.6)"
+                strokeWidth="1.5"
+              />
+              {lines.map((line, li) => (
+                <text
+                  key={li}
+                  x={p.x}
+                  y={p.y + NODE_R + 14 + li * 12}
+                  textAnchor="middle"
+                  fontSize="10"
+                  fill="rgba(255,255,255,0.85)"
+                  fontFamily="sans-serif"
+                  fontWeight="400"
+                >
+                  {line}
+                </text>
+              ))}
+            </g>
+          );
+        })}
+      </g>
     </svg>
   );
 }
@@ -557,41 +630,11 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
                 </div>
               )}
 
-              {/* Results — Connections graph */}
+              {/* Results — Connections graph (infinite canvas) */}
               {!isExtracting && hasResults && rightView === "graph" && (
-                <div className="h-full overflow-y-auto px-6 py-6 flex flex-col gap-6">
-                  {/* SVG graph */}
-                  <div className="w-full flex items-center justify-center">
-                    <GraphView nodes={extractedNodes} edges={extractedEdges} />
-                  </div>
-
-                  {/* Node list */}
-                  <div className="grid grid-cols-1 gap-2">
-                    {extractedNodes.map((n) => (
-                      <div key={n.title} className="rounded-xl bg-white/8 border border-white/10 px-4 py-3">
-                        <p className="text-xs font-sans font-semibold text-[#F8F7F3]/80 mb-1">{n.title}</p>
-                        <p className="text-xs font-sans font-light text-[#F8F7F3]/55 leading-relaxed">{n.body}</p>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Edge list */}
-                  {extractedEdges.length > 0 && (
-                    <div>
-                      <p className="text-[10px] tracking-widest uppercase font-sans font-medium text-[#F8F7F3]/35 mb-2">Connections</p>
-                      <div className="flex flex-col gap-1.5">
-                        {extractedEdges.map((e, i) => (
-                          <div key={i} className="flex items-center gap-2 text-xs font-sans text-[#F8F7F3]/60">
-                            <span className="font-medium text-[#F8F7F3]/75">{e.source}</span>
-                            <span className="text-[#F8F7F3]/30">→</span>
-                            {e.label && <span className="italic text-[#F8F7F3]/40">{e.label}</span>}
-                            {e.label && <span className="text-[#F8F7F3]/30">→</span>}
-                            <span className="font-medium text-[#F8F7F3]/75">{e.target}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                <div className="absolute inset-0">
+                  <GraphView nodes={extractedNodes} edges={extractedEdges} />
+                  <p className="absolute bottom-3 right-4 text-[10px] text-[#F8F7F3]/25 font-sans pointer-events-none select-none">drag to explore</p>
                 </div>
               )}
             </div>
