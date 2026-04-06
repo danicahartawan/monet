@@ -33,7 +33,7 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
   const greeting = getGreeting(displayName);
 
   return (
-    <div className="relative min-h-[100dvh] w-full overflow-hidden bg-[#F8F7F3] flex items-center justify-center selection:bg-[#899E7F]/30">
+    <div className="relative h-[100dvh] w-full overflow-hidden bg-[#F8F7F3] selection:bg-[#899E7F]/30">
       {/* Background Blobs */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="blob bg-[#899E7F] w-[600px] h-[600px] top-[-100px] left-[-100px] mix-blend-multiply opacity-30" style={{ animationDelay: "0s" }}></div>
@@ -45,12 +45,9 @@ export default function PreviewPage({ name = "" }: PreviewPageProps) {
 
       {/* App Window */}
       <div
-        className="relative z-10 w-full max-w-5xl mx-4 md:mx-8 bg-[#6f8364]/25 backdrop-blur-2xl border border-white/20 rounded-[32px] shadow-2xl animate-in fade-in zoom-in-95 duration-700 overflow-hidden"
+        className="relative z-10 w-full h-full bg-[#6f8364]/25 backdrop-blur-2xl border border-white/20 animate-in fade-in zoom-in-95 duration-700 overflow-hidden"
         style={{
-          boxShadow: "0 25px 50px -12px rgba(111, 131, 100, 0.25), inset 0 1px 0 rgba(255,255,255,0.2)",
-          minHeight: "560px",
-          height: "calc(100dvh - 48px)",
-          maxHeight: "760px",
+          boxShadow: "inset 0 1px 0 rgba(255,255,255,0.2)",
         }}
       >
         <div className="flex h-full">
